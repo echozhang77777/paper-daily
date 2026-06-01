@@ -1,4 +1,3 @@
-# paper-daily
 # 📚 每日论文推送
 
 每天自动从 ArXiv 和 PubMed 抓取最新论文，发送到邮箱。
