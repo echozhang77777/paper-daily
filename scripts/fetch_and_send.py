@@ -143,16 +143,16 @@ def ai_annotate(paper: dict) -> str:
                 "content-type": "application/json",
             },
             json={
-                "model": "claude-sonnet-4-6",,
+                "model": "claude-sonnet-4-6",
                 "max_tokens": 300,
                 "messages": [{"role": "user", "content": prompt}],
             },
             timeout=30,
         )
         result = resp.json()
-   if "error" in result:
-       return f"AI批注失败: {result['error']['message']}"
-   return result["content"][0]["text"]
+        if "error" in result:
+            return f"AI批注失败: {result['error']['message']}"
+        return result["content"][0]["text"]
     except Exception as e:
         return f"AI批注失败: {e}"
 
@@ -165,7 +165,6 @@ def save_to_zotero(paper: dict, category: str, annotation: str) -> bool:
         "Content-Type": "application/json",
     }
 
-    # 构建 Zotero item
     if paper["source"] == "arxiv":
         item_type = "preprint"
         repo = "arXiv"
