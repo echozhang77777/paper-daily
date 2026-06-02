@@ -149,7 +149,10 @@ def ai_annotate(paper: dict) -> str:
             },
             timeout=30,
         )
-        return resp.json()["content"][0]["text"]
+        result = resp.json()
+   if "error" in result:
+       return f"AI批注失败: {result['error']['message']}"
+   return result["content"][0]["text"]
     except Exception as e:
         return f"AI批注失败: {e}"
 
