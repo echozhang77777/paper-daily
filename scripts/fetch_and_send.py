@@ -158,19 +158,18 @@ def ai_annotate(paper: dict) -> str:
 
 
 def save_to_zotero(paper: dict, category: str, annotation: str) -> bool:
-    """保存论文到 Zotero，并附上 AI 批注"""
-    url = f"https://api.zotero.org/users/{ZOTERO_UID}/items"
+    """保存论文到 Zotero，AI批注作为子笔记单独创建"""
     headers = {
         "Zotero-API-Key": ZOTERO_KEY,
         "Content-Type": "application/json",
     }
+    base_url = f"https://api.zotero.org/users/{ZOTERO_UID}/items"
 
+    # ── 第一步：创建主条目 ──────────────────────────────
     if paper["source"] == "arxiv":
         item_type = "preprint"
-        repo = "arXiv"
     else:
         item_type = "journalArticle"
-        repo = "PubMed"
 
     item = {
         "itemType": item_type,
@@ -178,23 +177,56 @@ def save_to_zotero(paper: dict, category: str, annotation: str) -> bool:
         "creators": [
             {"creatorType": "author", "name": a.strip()}
             for a in paper["authors"].split(",")
+            if a.strip()
         ],
         "abstractNote": paper["abstract"],
         "url": paper["link"],
         "date": paper["date"],
-        "repository": repo,
         "tags": [
             {"tag": category},
             {"tag": "auto-imported"},
             {"tag": "daily-paper"},
         ],
-        "note": f"【AI批注】\n{annotation}\n\n【导入时间】{datetime.utcnow().strftime('%Y-%m-%d')}",
     }
 
     try:
-        resp = requests.post(url, headers=headers, json=[item], timeout=15)
-        return resp.status_code in (200, 201)
-    except Exception:
+        resp = requests.post(base_url, headers=headers, json=[item], timeout=15)
+        print(f"  Zotero item status: {resp.status_code}")
+        if resp.status_code not in (200, 201):
+            print(f"  Zotero error: {resp.text[:200]}")
+            return False
+
+        # 获取新建条目的 key
+        data = resp.json()
+        item_key = None
+        if "successful" in data:
+            item_key = list(data["successful"].values())[0].get("key")
+        elif "success" in data:
+            item_key = list(data["success"].values())[0]
+
+        # ── 第二步：若有 AI 批注，创建子笔记 ────────────
+        if item_key and annotation:
+            note_content = (
+                f"<h3>🤖 AI批注</h3>"
+                f"<p>{annotation}</p>"
+                f"<hr/>"
+                f"<p><small>导入时间：{datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}</small></p>"
+            )
+            note_item = {
+                "itemType": "note",
+                "parentItem": item_key,
+                "note": note_content,
+                "tags": [{"tag": "ai-annotation"}],
+            }
+            note_resp = requests.post(
+                base_url, headers=headers, json=[note_item], timeout=15
+            )
+            print(f"  Zotero note status: {note_resp.status_code}")
+
+        return True
+
+    except Exception as e:
+        print(f"  Zotero exception: {e}")
         return False
 
 
